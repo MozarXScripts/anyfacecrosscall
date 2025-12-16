@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Call App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.3s;
+            margin: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .video-container {
+            display: none;
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            background: #000;
+        }
+
+        .videos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 10px;
+            padding: 20px;
+            height: calc(100vh - 100px);
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+            background: #333;
+        }
+
+        .video-wrapper {
+            position: relative;
+            background: #222;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .video-label {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            font-size: 20px;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .mute-btn {
+            background: #ff4757;
+            color: white;
+        }
+
+        .mute-btn.active {
+            background: #2ed573;
+        }
+
+        .video-btn {
+            background: #5352ed;
+            color: white;
+        }
+
+        .video-btn.active {
+            background: #2ed573;
+        }
+
+        .flip-btn {
+            background: #ffa502;
+            color: white;
+        }
+
+        .hangup-btn {
+            background: #ff4757;
+            color: white;
+        }
+
+        .participants-count {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .error-message {
+            color: #ff4757;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .success-message {
+            color: #2ed573;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .videos-grid {
+                grid-template-columns: 1fr;
+                padding: 10px;
+            }
+            
+            .controls {
+                bottom: 10px;
+                padding: 10px;
+                gap: 10px;
+            }
+            
+            .control-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Landing Page -->
+    <div id="landingPage" class="container">
+        <h1>🎥 Video Call</h1>
+        <div class="input-group">
+            <input type="text" id="username" placeholder="Enter your username" maxlength="20">
+        </div>
+        <div class="input-group">
+            <input type="text" id="roomCode" placeholder="Enter room code (or leave empty to create)" maxlength="10">
+        </div>
+        <button onclick="joinRoom()">Join Call</button>
+        <button onclick="createRoom()">Create New Room</button>
+        <div id="message"></div>
+    </div>
+
+    <!-- Video Call Page -->
+    <div id="videoPage" class="video-container">
+        <div class="participants-count" id="participantsCount">Participants: 1/5</div>
+        <div class="videos-grid" id="videosGrid">
+            <!-- Videos will be added here dynamically -->
+        </div>
+        <div class="controls">
+            <button class="control-btn mute-btn" id="muteBtn" onclick="toggleMute()" title="Toggle Mute">
+                🎤
+            </button>
+            <button class="control-btn video-btn active" id="videoBtn" onclick="toggleVideo()" title="Toggle Video">
+                📹
+            </button>
+            <button class="control-btn flip-btn" onclick="flipCamera()" title="Flip Camera">
+                🔄
+            </button>
+            <button class="control-btn hangup-btn" onclick="hangUp()" title="Hang Up">
+                📞
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // WebRTC Configuration
+        const RTC_CONFIG = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        // Global variables
+        let localStream;
+        let peerConnections = {};
+        let socket;
+        let roomId;
+        let username;
+        let isMuted = false;
+        let isVideoOff = false;
+        let currentCamera = 'user';
+        let participants = new Set();
+
+        // Initialize
+        function init() {
+            // For demo purposes, we'll use a simple signaling system
+            // In production, you'd want to use Socket.IO or similar
+            console.log('Video calling app initialized');
+        }
+
+        // Generate random room code
+        function generateRoomCode() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+
+        // Create new room
+        async function createRoom() {
+            const usernameInput = document.getElementById('username').value.trim();
+            if (!usernameInput) {
+                showMessage('Please enter a username', 'error');
+                return;
+            }
+
+            username = usernameInput;
+            roomId = generateRoomCode();
+            document.getElementById('roomCode').value = roomId;
+            
+            showMessage(`Room created! Code: ${roomId}`, 'success');
+            setTimeout(() => {
+                startCall();
+            }, 1000);
+        }
+
+        // Join existing room
+        async function joinRoom() {
+            const usernameInput = document.getElementById('username').value.trim();
+            const roomCode = document.getElementById('roomCode').value.trim();
+
+            if (!usernameInput) {
+                showMessage('Please enter a username', 'error');
+                return;
+            }
+
+            if (!roomCode) {
+                showMessage('Please enter a room code', 'error');
+                return;
+            }
+
+            username = usernameInput;
+            roomId = roomCode;
+            startCall();
+        }
+
+        // Start the video call
+        async function startCall() {
+            try {
+                // Get user media
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: currentCamera },
+                    audio: true
+                });
+
+                // Switch to video page
+                document.getElementById('landingPage').style.display = 'none';
+                document.getElementById('videoPage').style.display = 'block';
+
+                // Add local video
+                addVideoStream('local', localStream, username);
+
+                // Initialize peer connections for other participants
+                // For demo, we'll simulate connections
+                simulateConnections();
+
+            } catch (error) {
+                console.error('Error accessing media devices:', error);
+                showMessage('Error accessing camera/microphone', 'error');
+            }
+        }
+
+        // Add video stream to grid
+        function addVideoStream(id, stream, userLabel) {
+            const videosGrid = document.getElementById('videosGrid');
+            
+            // Remove existing video if present
+            const existingVideo = document.getElementById(`video-${id}`);
+            if (existingVideo) {
+                existingVideo.remove();
+            }
+
+            const videoWrapper = document.createElement('div');
+            videoWrapper.className = 'video-wrapper';
+            videoWrapper.id = `video-${id}`;
+
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.autoplay = true;
+            video.muted = id === 'local'; // Mute local video to prevent feedback
+            video.playsInline = true;
+
+            const label = document.createElement('div');
+            label.className = 'video-label';
+            label.textContent = userLabel;
+
+            videoWrapper.appendChild(video);
+            videoWrapper.appendChild(label);
+            videosGrid.appendChild(videoWrapper);
+
+            // Update participants count
+            participants.add(id);
+            updateParticipantsCount();
+        }
+
+        // Simulate peer connections (for demo purposes)
+        function simulateConnections() {
+            // In a real implementation, this would establish WebRTC connections
+            // For demo, we'll just show the local video
+            
+            // Simulate joining delay
+            setTimeout(() => {
+                updateParticipantsCount();
+            }, 1000);
+        }
+
+        // Update participants count display
+        function updateParticipantsCount() {
+            const count = participants.size;
+            document.getElementById('participantsCount').textContent = `Participants: ${count}/5`;
+        }
+
+        // Toggle mute
+        function toggleMute() {
+            if (localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = !audioTrack.enabled;
+                    isMuted = !audioTrack.enabled;
+                    
+                    const muteBtn = document.getElementById('muteBtn');
+                    muteBtn.classList.toggle('active', !isMuted);
+                }
+            }
+        }
+
+        // Toggle video
+        function toggleVideo() {
+            if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = !videoTrack.enabled;
+                    isVideoOff = !videoTrack.enabled;
+                    
+                    const videoBtn = document.getElementById('videoBtn');
+                    videoBtn.classList.toggle('active', !isVideoOff);
+                }
+            }
+        }
+
+        // Flip camera
+        async function flipCamera() {
+            if (localStream) {
+                currentCamera = currentCamera === 'user' ? 'environment' : 'user';
+                
+                try {
+                    const newStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: currentCamera },
+                        audio: true
+                    });
+
+                    // Replace video track
+                    const newVideoTrack = newStream.getVideoTracks()[0];
+                    const oldVideoTrack = localStream.getVideoTracks()[0];
+                    
+                    if (oldVideoTrack) {
+                        localStream.removeTrack(oldVideoTrack);
+                        oldVideoTrack.stop();
+                    }
+                    
+                    localStream.addTrack(newVideoTrack);
+
+                    // Update local video element
+                    const localVideo = document.querySelector('#video-local video');
+                    if (localVideo) {
+                        localVideo.srcObject = localStream;
+                    }
+
+                } catch (error) {
+                    console.error('Error flipping camera:', error);
+                    showMessage('Error flipping camera', 'error');
+                }
+            }
+        }
+
+        // Hang up
+        function hangUp() {
+            // Stop all tracks
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+
+            // Clear peer connections
+            Object.values(peerConnections).forEach(pc => {
+                if (pc) pc.close();
+            });
+            peerConnections = {};
+
+            // Reset UI
+            document.getElementById('videoPage').style.display = 'none';
+            document.getElementById('landingPage').style.display = 'block';
+            document.getElementById('videosGrid').innerHTML = '';
+            document.getElementById('roomCode').value = '';
+            document.getElementById('message').innerHTML = '';
+
+            participants.clear();
+        }
+
+        // Show message
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = `<div class="${type}-message">${text}</div>`;
+            setTimeout(() => {
+                messageDiv.innerHTML = '';
+            }, 3000);
+        }
+
+        // Initialize on page load
+        window.onload = init;
+
+        // Handle page unload
+        window.onbeforeunload = () => {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+        };
+
+        // For a real implementation, you would need to add:
+        // 1. Socket.IO for real-time signaling
+        // 2. Proper WebRTC peer connection management
+        // 3. STUN/TURN server configuration
+        // 4. Error handling for network issues
+        // 5. Reconnection logic
+    </script>
+</body>
+</html>
